@@ -22,9 +22,8 @@ class AnkiClient:
     def sync(self) -> None:
         logger.info("Syncing Anki...")
         try:
-            env = os.environ.copy()
-            env["ANKI_BASE"] = self.base_path
-            subprocess.run(["apy", "sync"], check=True, env=env)
+            apy_path = config.PROJECT_ROOT / ".venv" / "bin" / "apy"
+            subprocess.run([str(apy_path), "-b", self.base_path, "-p", "同期用", "sync"], check=True)
         except subprocess.CalledProcessError as e:
             logger.error(f"Error syncing Anki: {e}")
             raise
@@ -34,7 +33,7 @@ class AnkiClient:
         new_counts = {}
         start_ms = int(start_date.timestamp() * 1000)
 
-        with Anki(base_path=self.base_path) as a:
+        with Anki(base_path=self.base_path, profile="同期用") as a:
             # 1. 密度集計
             query = """
                 SELECT 
