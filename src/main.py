@@ -25,9 +25,13 @@ def run():
     today_start = datetime.datetime(now.year, now.month, now.day)
     
     stats, new_counts = anki.get_stats(today_start)
+    maturity_stats = anki.get_maturity_stats()
     
     if stats:
         sheets.update_stats(stats)
+    
+    if maturity_stats:
+        sheets.update_maturity_stats(maturity_stats)
     
     slack.notify_progress(new_counts)
     

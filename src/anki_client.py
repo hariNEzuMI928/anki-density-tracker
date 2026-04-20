@@ -28,6 +28,24 @@ class AnkiClient:
             logger.error(f"Error syncing Anki: {e}")
             raise
 
+    def get_maturity_stats(self) -> List[Dict[str, Any]]:
+        maturity_stats = []
+        with Anki(base_path=self.base_path, profile="同期用") as a:
+            today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+            for deck_name in config.DECKS_TO_TRACK:
+                # Mature: review cards, not suspended, interval >= 21
+                mature_cards = a.col.find_cards(f'deck:"{deck_name}" is:review -is:suspended prop:ivl>=21')
+                # Young: review cards, not suspended, interval < 21
+                young_cards = a.col.find_cards(f'deck:"{deck_name}" is:review -is:suspended prop:ivl<21')
+                
+                maturity_stats.append({
+                    "date": today_str,
+                    "deck": deck_name,
+                    "young": len(young_cards),
+                    "mature": len(mature_cards)
+                })
+        return maturity_stats
+
     def get_stats(self, start_date: datetime.datetime) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         stats_map = {}
         new_counts = {}
