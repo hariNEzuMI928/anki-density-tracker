@@ -37,17 +37,26 @@ class SlackClient:
         if not messages:
             return
 
-        full_message = "📊 *Anki学習進捗レポート*\n" + "\n".join(messages)
-        logger.info(full_message)
-
-        if now.hour >= 21 or config.FORCE_NOTIFY:
-            self._send(full_message)
+        # 時間帯に応じたタイトルを設定
+        time_titles = {
+            12: "☀️ *昼の進捗確認*",
+            17: "🌇 *夕方の進捗確認*",
+            21: "🌌 *夜の進捗レポート*",
+            23: "🌙 *一日の最終確認*"
+        }
+        title = time_titles.get(now.hour, "📊 *Anki学習進捗レポート*")
+        
+        full_message = f"{title}\n" + "\n".join(messages)
+        logger.info(f"Sending Slack notification:\n{full_message}")
+        self._send(full_message)
 
     def _send(self, text: str) -> None:
         if not self.webhook_url:
             logger.warning("SLACK_WEBHOOK_URL not set. Skipping.")
             return
         try:
-            requests.post(self.webhook_url, json={"text": text}, timeout=10)
+            response = requests.post(self.webhook_url, json={"text": text}, timeout=10)
+            response.raise_for_status()
+            logger.info(f"Slack notification sent successfully (status: {response.status_code})")
         except Exception as e:
             logger.error(f"Error sending Slack notification: {e}")
