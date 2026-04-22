@@ -184,25 +184,56 @@ def process_notifications(new_counts):
     remaining_days = max(1, last_day - now.day + 1)
 
     messages = []
-    should_notify = False
+    
+    # デッキごとのアイコン設定
+    deck_icons = {
+        "2_EnglishComposition": "📘",
+        "3_FluencyTest": "📙",
+        "1_Vocabulary": "📕"
+    }
 
     for deck_name, data in new_counts.items():
         remaining = data["remaining_new"]
         actual = data["today_actual_new"]
         required_per_day = (remaining + actual) / remaining_days
-
-        status_line = f"*{deck_name}*\n    残り新規: {remaining}枚 / 今月残り: {remaining_days}日 → *目標: {required_per_day:.1f}枚/日*"
-        actual_line = f"    本日の進捗: {actual}枚"
-
+        
+        # 達成率の計算
+        percent = (actual / required_per_day * 100) if required_per_day > 0 else 0
+        
+        # プログレスバーの生成 (10個の絵文字)
+        filled_count = min(10, int(percent / 10))
+        bar = "🟢" * filled_count + "⚪️" * (10 - filled_count)
+        
+        # デッキアイコンの取得
+        icon = deck_icons.get(deck_name, "✨")
+        
+        # ステータス判定
         if actual < required_per_day:
             diff = required_per_day - actual
-            messages.append(f"🔥 {status_line}\n{actual_line} (あと {diff:.1f} 枚不足しています。)")
-            should_notify = True
+            status_text = f"🔥 *Status: あと {diff:.1f} 枚不足しています。再開しましょう！*"
         else:
-            messages.append(f"✨ {status_line}\n{actual_line} (順調です！この調子で継続しましょう。)")
+            status_text = "🔥 *Status: 順調です！この調子で継続しましょう。*"
+
+        deck_msg = (
+            f"{icon} *{deck_name}*\n"
+            f"{bar} ({percent:.0f}%)\n"
+            f"📈 進捗: *{actual}* / 目標: {required_per_day:.1f} 枚\n"
+            f"⏳ 残り: {remaining}枚 (今月あと{remaining_days}日)\n"
+            f"{status_text}"
+        )
+        messages.append(deck_msg)
 
     if messages:
-        full_message = "📊 *Anki学習進捗レポート*\n" + "\n".join(messages)
+        # 時間帯に応じたタイトルを設定
+        time_titles = {
+            12: "☀️ *昼の進捗確認*",
+            17: "🌇 *夕方の進捗確認*",
+            21: "🌌 *夜の進捗レポート*",
+            23: "🌙 *一日の最終確認*"
+        }
+        title = time_titles.get(now.hour, "📊 *Anki学習進捗レポート*")
+        
+        full_message = f"{title}\n\n" + "\n\n".join(messages)
 
         print(full_message)
         # 21時以降の場合、または強制通知フラグがある場合に送信
