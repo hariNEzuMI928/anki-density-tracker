@@ -1,0 +1,6 @@
+[tools]
+python = "3.12.12"
+
+[tasks.run]
+description = "Sync Anki stats and update Google Sheets"
+run = ".venv/bin/python anki_density_tracker.py"

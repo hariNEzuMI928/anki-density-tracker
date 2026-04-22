@@ -12,7 +12,7 @@ Ankiデスクトップアプリを起動していなくても、`apy` (Anki CLI)
 
 - **学習密度集計**: デッキごとの学習枚数と所要時間を30分単位で集計。
 - **Google Sheets 連携**: 集計データをスプレッドシートに自動追記。
-- **目標進捗通知**: 
+- **目標進捗通知**:
   - `EnglishComposition` および `FluencyTest` デッキの新規カード消化状況をチェック。
   - 今月末までの目標達成に必要な1日あたりの枚数と、当日の実績を比較してSlack通知。
 - **自動同期**: `apy sync` によりAnkiWebとの同期を自動実行。
@@ -20,12 +20,12 @@ Ankiデスクトップアプリを起動していなくても、`apy` (Anki CLI)
 
 ## 技術スタック
 
-- **Language**: Python 3.12+
+- **Language**: Python 3.12+ (Managed by [mise](https://mise.jdx.dev/))
 - **Data Access**: [apy](https://github.com/pndurette/apy)
 - **External APIs**:
   - Google Sheets API ([gspread](https://github.com/burnash/gspread))
   - Slack Incoming Webhooks
-- **Automation**: macOS launchd
+- **Automation**: macOS launchd (via mise)
 
 ## セットアップ
 
@@ -34,7 +34,11 @@ Ankiデスクトップアプリを起動していなくても、`apy` (Anki CLI)
 ```bash
 git clone <repository-url>
 cd anki-density-tracker
-pyenv local 3.12.0
+
+# miseを使用してツールをセットアップ
+mise install
+
+# 仮想環境の作成とパッケージのインストール
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -60,17 +64,24 @@ cp .env.example .env
 
 ## 実行方法
 
-手動で実行する場合:
+手動で実行する場合（miseを使用）:
+
+```bash
+mise run run
+```
+
+あるいは直接スクリプトを叩く場合:
 
 ```bash
 source .venv/bin/activate
-python -m src.main
+python anki_density_tracker.py
 ```
 
 ## 定期実行の設定 (macOS)
 
-`launchd` を使用して、毎日21:00に実行するように設定できます。
-サンプルとなる `.plist` ファイルは `launchd/` ディレクトリ内にあります（シンボリックリンク等で `~/Library/LaunchAgents/` に配置して使用します）。
+`launchd` を使用して、1日複数回（12:05, 17:05, 21:05, 23:05）実行するように設定されています。
+設定ファイルは `$HOME/dotfiles/launchd/com.user.anki-density-tracker.plist` で管理し、`~/Library/LaunchAgents/com.user.anki-density-tracker.plist` にシンボリックリンクを貼って使用します。
+内部では `mise run run` を呼び出しています。
 
 ## ライセンス
 
