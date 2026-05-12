@@ -88,3 +88,37 @@ class SheetsClient:
             sheet.append_rows(new_rows)
         
         logger.info(f"Maturity Sheets: {len(new_rows)} new, {len(updates)} updated.")
+
+    def update_daily_study_time(self, stats: List[Dict[str, Any]]) -> None:
+        sheet = self._get_sheet("Anki_Daily")
+        if not sheet:
+            logger.warning("Anki_Daily worksheet not found or config missing. Skipping.")
+            return
+
+        header = ["日付", "デッキ名", "合計学習時間（分）"]
+        all_values = sheet.get_all_values()
+        if not all_values or not all_values[0] or all_values[0][0] != header[0]:
+            sheet.insert_row(header, 1)
+            all_values = [header] + (all_values if all_values and all_values[0] else [])
+
+        existing_data = {(row[0], row[1]): i for i, row in enumerate(all_values, 1) if len(row) >= 2}
+        new_rows = []
+        updates = []
+
+        for item in stats:
+            key = (item["date"], item["deck"])
+            new_row = [item["date"], item["deck"], item["minutes"]]
+            if key in existing_data:
+                idx = existing_data[key]
+                curr_row = all_values[idx-1]
+                if len(curr_row) < 3 or str(curr_row[2]) != str(item["minutes"]):
+                    updates.append({"range": f"A{idx}:C{idx}", "values": [new_row]})
+            else:
+                new_rows.append(new_row)
+
+        if updates:
+            sheet.batch_update(updates)
+        if new_rows:
+            sheet.append_rows(new_rows)
+        
+        logger.info(f"Daily Time Sheets: {len(new_rows)} new, {len(updates)} updated.")

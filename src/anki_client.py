@@ -2,6 +2,7 @@ import os
 import subprocess
 import datetime
 import logging
+import zoneinfo
 from typing import List, Dict, Tuple, Any
 from apyanki.anki import Anki
 from .config import config
@@ -104,6 +105,52 @@ class AnkiClient:
                 }
 
         return stats, new_counts
+
+    def get_daily_study_time(self) -> List[Dict[str, Any]]:
+        tz = zoneinfo.ZoneInfo("Europe/Warsaw")
+        now = datetime.datetime.now(tz)
+        start_date = now - datetime.timedelta(days=30)
+        start_ms = int(start_date.timestamp() * 1000)
+
+        daily_stats_map = {}
+
+        with Anki(base_path=self.base_path, profile="同期用") as a:
+            query = """
+                SELECT 
+                    r.id,
+                    c.did,
+                    MIN(r.time, 600000) as capped_time
+                FROM revlog r
+                JOIN cards c ON r.cid = c.id
+                WHERE r.id > ?
+            """
+            rows = a.col.db.all(query, start_ms)
+            deck_id_to_name = {v: k for k, v in a.deck_name_to_id.items()}
+
+            for rev_id_ms, did, capped_time in rows:
+                rev_time_utc = datetime.datetime.fromtimestamp(rev_id_ms / 1000.0, tz=datetime.timezone.utc)
+                rev_time_local = rev_time_utc.astimezone(tz)
+                date_str = rev_time_local.strftime("%Y-%m-%d")
+                
+                deck_name = deck_id_to_name.get(did, f"Unknown({did})")
+                parent_deck = self._get_parent_deck(deck_name)
+                
+                if parent_deck:
+                    key = (date_str, parent_deck)
+                    if key not in daily_stats_map:
+                        daily_stats_map[key] = 0
+                    daily_stats_map[key] += capped_time
+
+        stats = []
+        for (date_str, deck), total_time_ms in sorted(daily_stats_map.items()):
+            minutes = total_time_ms / 60000.0
+            stats.append({
+                "date": date_str,
+                "deck": deck,
+                "minutes": round(minutes, 2)
+            })
+
+        return stats
 
     def _get_parent_deck(self, deck_name: str) -> str | None:
         for track in config.DECKS_TO_TRACK:
