@@ -11,10 +11,13 @@ class SlackClient:
     def __init__(self):
         self.webhook_url = config.SLACK_WEBHOOK_URL
 
-    def notify_progress(self, new_counts: Dict[str, Any]) -> None:
+    def notify_progress(self, counts: Dict[str, Any]) -> None:
         now = datetime.datetime.now()
-        last_day = calendar.monthrange(now.year, now.month)[1]
-        remaining_days = max(1, last_day - now.day + 1)
+        
+        # 今週の日曜日までの残り日数を計算 (月=0, ..., 日=6)
+        # 日曜日の場合、残り日数は1(今日を含める)とする。それ以外は日曜日までの日数+1(今日)
+        days_until_sunday = 6 - now.weekday()
+        remaining_days = days_until_sunday + 1 if days_until_sunday > 0 else 1
         
         messages = []
         
@@ -25,33 +28,28 @@ class SlackClient:
             "1_Vocabulary": "📕"
         }
 
-        for deck_name, data in new_counts.items():
-            remaining = data["remaining_new"]
-            actual = data["today_actual_new"]
-            required_per_day = (remaining + actual) / remaining_days
+        for deck_name, data in counts.items():
+            remaining_due = data["remaining_due"]
+            today_reviewed = data["today_reviewed"]
             
-            # 達成率の計算
-            percent = (actual / required_per_day * 100) if required_per_day > 0 else 0
-            
-            # プログレスバーの生成 (10個の絵文字)
-            filled_count = min(10, int(percent / 10))
-            bar = "🟢" * filled_count + "⚪️" * (10 - filled_count)
+            # 日曜日までに0にするために、1日あたりに消化すべき「残りの」枚数
+            # (厳密には明日以降増える期日カードもあるが、現在の残数ベースで計算)
+            required_per_day = remaining_due / remaining_days
             
             # デッキアイコンの取得
             icon = deck_icons.get(deck_name, "✨")
             
             # ステータス判定
-            if actual < required_per_day:
-                diff = required_per_day - actual
-                status_text = f"🔥 *Status: あと {diff:.1f} 枚不足しています。再開しましょう！*"
+            if remaining_due > 0:
+                status_text = f"🔥 *Status: 日曜日までに完済するには、あと1日あたり約 {required_per_day:.1f} 枚の消化が必要です！*"
             else:
-                status_text = "🔥 *Status: 順調です！この調子で継続しましょう。*"
+                status_text = "✨ *Status: 期日切れカードなし！素晴らしいです！*"
 
             deck_msg = (
                 f"{icon} *{deck_name}*\n"
-                f"{bar} ({percent:.0f}%)\n"
-                f"📈 進捗: *{actual}* / 目標: {required_per_day:.1f} 枚\n"
-                f"⏳ 残り: {remaining}枚 (今月あと{remaining_days}日)\n"
+                f"🚨 期日切れ未完了: *{remaining_due}* 枚\n"
+                f"📚 本日の学習済: {today_reviewed} 枚\n"
+                f"⏳ 日曜日まで残り {remaining_days} 日\n"
                 f"{status_text}"
             )
             messages.append(deck_msg)

@@ -88,20 +88,20 @@ class AnkiClient:
 
             # 2. ターゲットデッキの進捗
             for deck_name in config.TARGET_DECKS:
-                new_cards = a.col.find_cards(f'deck:"{deck_name}" is:new')
-                query_today_new = """
+                due_cards = a.col.find_cards(f'deck:"{deck_name}" is:due')
+                query_today_reviewed = """
                     SELECT count(distinct cid)
                     FROM revlog
-                    WHERE id > ? AND type = 0
+                    WHERE id > ?
                     AND cid IN (SELECT id FROM cards WHERE did IN (
                         SELECT id FROM decks WHERE name = ? OR name LIKE ?
                     ))
                 """
-                today_new_count = a.col.db.scalar(query_today_new, start_ms, deck_name, f"{deck_name}::%")
+                today_reviewed_count = a.col.db.scalar(query_today_reviewed, start_ms, deck_name, f"{deck_name}::%")
                 
                 new_counts[deck_name] = {
-                    "remaining_new": len(new_cards),
-                    "today_actual_new": today_new_count
+                    "remaining_due": len(due_cards),
+                    "today_reviewed": today_reviewed_count
                 }
 
         return stats, new_counts
